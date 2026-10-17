@@ -1,3 +1,16 @@
+***Project overview and objectives***
+
+The project focuses on predicting a wealth index for regions in Ghana, Kenya, and Nigeria,
+transitioning from a regression problem to a binary classification task. The primary objectives
+are:
+
+● To explore the dataset and identify key patterns and relationships
+● To develop a stacking ensemble for regression to predict the continuous wealth index
+● To define a new binary target variable and build a tuned Random Forest classifier,
+addressing class imbalance . The analysis employs data preprocessing, ensemble
+methods, and classification techniques, providing insights into wealth prediction and
+classification challenges within the given timeframe.
+
 Data Description
 The file “wealth.csv” contain the dataset and the variables used are :
 
