@@ -12,9 +12,13 @@ logic for these variables.
 **ghsl_pop_density** : population density for the surrounding area (5km radius)
 
 • Landcover: based on the Copernicus Global Land Cover Layers
+
 **Landcover_crops_fraction** : the fraction of land within 5km of the cluster that is classified as cropland.
+
 **landcover_urban_fraction** : the fraction of land within 5km of the cluster that is classified as urban.
+
 **Landcover_water_permanent_10km_fraction** : the fraction of land within 10km of the cluster that
+
 is classified as permanent water
 **Landcover_water_seasonal_10km_fraction** : the fraction of land within 10km of the cluster that is
 classified as seasonal water.
