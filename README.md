@@ -2,6 +2,7 @@ Data Description
 The file “wealth.csv” contain the dataset and the variables used are :
 
 • Global Human Settlement Layer. Based on data from the GHSL project.
+
 **ghsl_water_surface** : the fraction of land within 5km of the cluster that is classified as water surface
 **ghsl_built_pre_1975** : the fraction of land within 5km of the cluster that is classified as built-up before
 1975
