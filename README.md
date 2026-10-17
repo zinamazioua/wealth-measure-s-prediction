@@ -13,8 +13,13 @@ addressing class imbalance . The analysis employs data preprocessing, ensemble
 methods, and classification techniques, providing insights into wealth prediction and
 classification challenges within the given timeframe.
 
-Data Description
-The file “wealth.csv” contain the dataset and the variables used are :
+***Data Description***
+
+The dataset initially contains 21,454 observations and 19 variables, including an identifier
+(ID), categorical features (country, urban_or_rural), temporal data (year), and numeric
+predictors such as (ghsl_water_surface, nighttime_lights, dist_to_shoreline), and a
+continuous Target (wealth index, 0 to 1).No missing values were observed across all
+variables.
 
 • Global Human Settlement Layer. Based on data from the GHSL project.
 
