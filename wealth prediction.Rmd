@@ -1,0 +1,928 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+#Q1. Read the file “wealth.csv” and inspect the dataset.
+
+```{r}
+library(tidymodels)
+library(tidyverse)
+```
+
+```{r}
+data<- read.csv("C:/Users/BCSbgayet/Downloads/wealth.csv")
+head(data)
+```
+
+```{r}
+glimpse(data)
+```
+```{r}
+summary(data)
+```
+```{r}
+colSums(is.na(data))
+```
+```{r}
+numeric_vars <- names(data)[sapply(data, is.numeric)]
+print("Variables numériques:")
+print(numeric_vars)
+
+categorical_vars <- names(data)[sapply(data, function(x) is.factor(x) || is.character(x))]
+print("Variables catégorielles:")
+print(categorical_vars)
+```
+#Q2. perform some descriptive analysis on the different variables of the dataset and study their relationship to the target variable.
+
+```{r}
+library(ggplot2)
+
+```
+
+```{r}
+ggplot(data, aes(x = Target)) +
+  geom_histogram(bins = 30, fill = "skyblue", color = "black") +
+  labs(title = "Distribution of Wealth Index", x = "Wealth Index", y = "Frequency")
+
+```
+
+
+```{r}
+ggplot(data, aes(x = country)) +
+  geom_bar(fill = "blue") +
+  labs( x = "Pays", y = "frequency") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+```{r}
+ggplot(data, aes(x = Target, color = country, fill = country)) +
+  geom_density(alpha = 0.3) +
+  labs(title = "Distribution of Target ", x = "Target", y = "density") +
+  theme_minimal()
+```
+```{r}
+ggplot(data, aes(x = urban_or_rural, y = Target, fill = urban_or_rural)) +
+  geom_boxplot() +
+  labs(title = "Wealth Index by Urban/Rural", x = "Urban or Rural", y = "Wealth Index") +
+  theme_minimal()
+
+```
+```{r}
+library(ggplot2)
+numeric_vars <- data %>% select(where(is.numeric))  # Exclude ID
+
+# Boxplot for each numeric variable
+pivot_longer(numeric_vars, everything()) %>%
+  ggplot(aes(x = name, y = value)) +
+  geom_boxplot() +
+  coord_flip() +
+  labs(title = "Boxplot of Numeric Features", x = "Variable", y = "Value")
+
+```
+
+
+```{r}
+library(GGally)
+```
+
+```{r}
+selected_vars <- data %>%
+  select(
+    `ghsl_water_surface`,
+    `ghsl_built_pre_1975`,
+    `ghsl_built_1975_to_1990`,
+    `ghsl_built_1990_to_2000`,
+    `ghsl_built_2000_to_2014`,
+    `ghsl_not_built_up`,
+    `ghsl_pop_density`,
+    `Target`
+  )
+
+pairplot <- selected_vars %>%
+  ggpairs(
+    title = "Relations entre les variables GHSL et Target",
+    upper = list(continuous = wrap("cor", size = 3)),
+    lower = list(continuous = wrap("smooth", alpha = 0.3, size = 0.5)),
+    progress = FALSE
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+ print(pairplot)
+```
+
+```{r}
+selected_vars <- data %>%
+  select(
+    `landcover_urban_fraction`,
+    `landcover_crops_fraction`,
+    `landcover_water_permanent_10km_fraction`,
+    `landcover_water_seasonal_10km_fraction`,
+    `nighttime_lights`,   
+    `dist_to_capital`,
+    `dist_to_shoreline`,
+    `Target`
+  )
+
+ pairplot <- selected_vars %>%
+  ggpairs(
+    title = "Relations entre les variables de couverture du sol et Target",
+    upper = list(continuous = wrap("cor", size = 3)),
+    lower = list(continuous = wrap("smooth", alpha = 0.3, size = 0.5)),
+    progress = FALSE
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+print(pairplot )
+
+```
+
+```{r}
+ggplot(data, aes(x=country, y=Target, fill=country))+
+  geom_boxplot()+
+  theme_minimal()+
+  theme(axis.text.x = element_text(angle = 45,hjust = 1))+
+  ylab("Target")+
+  xlab("country")
+```
+
+# Q3: Reproduce PCA Plots from the Paper Exam
+```{r}
+install.packages("Rtsne")
+install.packages("umap")
+install.packages("factoextra")
+install.packages("cluster")
+install.packages("dendextend")
+library(tidyverse)
+library(Rtsne)
+library(umap)
+library(factoextra)
+library(cluster)
+library(dendextend) 
+```
+
+ 
+
+```{r}
+vars <- data %>% select(year, ghsl_water_surface,
+                      ghsl_built_pre_1975, ghsl_built_1975_to_1990, ghsl_built_1990_to_2000,
+                      ghsl_built_2000_to_2014, ghsl_not_built_up, ghsl_pop_density,
+                      landcover_crops_fraction, landcover_urban_fraction,
+                      landcover_water_permanent_10km_fraction, landcover_water_seasonal_10km_fraction,
+                      nighttime_lights, dist_to_capital, dist_to_shoreline)
+```
+
+```{r}
+# PCA
+pca <- prcomp(scale(vars), center = TRUE)
+
+# Contributions (loadings)
+loadings <- as.data.frame(pca$rotation[, 1:4]) %>%
+  rownames_to_column("Variable") %>%
+  pivot_longer(-Variable, names_to = "PC", values_to = "Contribution")
+
+ggplot(loadings, aes(x = Variable, y = Contribution, fill = PC)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme_minimal() +
+  coord_flip() +
+  labs(title = "Contributions aux PC1 à PC4", y = "Valeur des composantes principales")
+```
+
+```{r}
+# Second Graph: Contribution Plot for PC1 and PC2
+
+pc1_vars <- c("landcover_urban_fraction", "ghsl_not_built_up", "ghsl_pop_density", "nighttime_lights",
+              "ghsl_built_pre_1975", "ghsl_built_1975_to_1990", "ghsl_built_1990_to_2000", "ghsl_built_2000_to_2014")
+
+pc2_vars <- c("ghsl_water_surface", "landcover_water_permanent_10km_fraction", "landcover_water_seasonal_10km_fraction",
+              "ghsl_not_built_up", "ghsl_built_2000_to_2014", "ghsl_built_1990_to_2000",
+              "landcover_crops_fraction", "dist_to_capital")
+
+loadings_data <- as.data.frame(pca$rotation)
+loadings_abs <- loadings_data %>%
+  mutate(Variable = rownames(.)) %>%
+  filter(Variable %in% unique(c(pc1_vars, pc2_vars))) %>%
+  pivot_longer(cols = starts_with("PC"), names_to = "PC", values_to = "Value") %>%
+  filter((PC == "PC1" & Variable %in% pc1_vars) | (PC == "PC2" & Variable %in% pc2_vars)) %>%
+  mutate(Positive = ifelse(Value > 0, "True", "False"),
+         AbsValue = abs(Value))
+
+ggplot(loadings_abs, aes(x = reorder(Variable, AbsValue), y = AbsValue, fill = Positive)) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~PC, scales = "free_y") +
+  coord_flip() +
+  scale_fill_manual(values = c("True" = "blue", "False" = "red")) +
+  labs(title = "Valeurs absolues PC1 et PC2", y = "Absolute value of contribution", x = "") +
+  theme_minimal()
+```
+
+```{r}
+# Third Graph: PCA Scatter Plot (PC1 vs. PC2) by country
+data$pca1 <- pca$x[, 1]
+data$pca2 <- pca$x[, 2]
+ggplot(data, aes(x = pca1, y = pca2, color = country)) +
+  geom_point(alpha = 0.6, size = 2) +
+  labs(title = "PCA Scatter Plot (PC1 vs. PC2)", x = "PC1", y = "PC2") +
+  theme_minimal() +
+  theme(legend.position = "right") +
+  scale_color_discrete(name = "Country")
+```
+
+```{r}
+install.packages("uwot")
+install.packages("Rtsne")
+library(uwot)  
+library(Rtsne)
+```
+
+```{r}
+scaled_vars <- scale(vars)
+
+# UMAP
+set.seed(123)  # For reproducibility
+umap_result <- umap(scaled_vars, n_components = 2, n_neighbors = 15, min_dist = 0.1)
+data$UMAP1 <- umap_result[, 1]
+data$UMAP2 <- umap_result[, 2]
+
+```
+```{r}
+# UMAP Plot
+ggplot(data, aes(x = UMAP1, y = UMAP2, color = country)) +
+  geom_point(alpha = 0.6, size = 2) +
+  labs(title = "UMAP Visualization", x = "UMAP1", y = "UMAP2") +
+  theme_minimal() +
+  theme(legend.position = "right") +
+  scale_color_discrete(name = "Country")
+```
+```{r}
+# Remove duplicates for t-SNE
+dup_indices <- !duplicated(scaled_vars)
+scaled_vars_no_dups <- scaled_vars[dup_indices, ]
+data_no_dups <- data[dup_indices, ]
+
+# t-SNE
+set.seed(123)  # For reproducibility
+tsne_result <- Rtsne(scaled_vars_no_dups, dims = 2, perplexity = 30, pca = TRUE)
+data_no_dups$tSNE1 <- tsne_result$Y[, 1]
+data_no_dups$tSNE2 <- tsne_result$Y[, 2]
+
+```
+
+```{r}
+# t-SNE Plot
+ggplot(data_no_dups, aes(x = tSNE1, y = tSNE2, color = country)) +
+  geom_point(alpha = 0.7) +
+  labs(title = "t-SNE Visualization", x = "tSNE1", y = "tSNE2") +
+  theme_minimal() +
+  theme(legend.position = "right") +
+  scale_color_discrete(name = "Country")
+```
+# Q4. Perform your own Unsupervised Learning analysis on this dataset.
+```{r}
+library(cluster)
+library(factoextra)
+library(ggplot2)
+library(recipes)
+library(dplyr)
+```
+
+```{r}
+unsup_data <- data %>%
+  select(where(is.numeric))
+```
+
+```{r}
+rec <- recipe(~ ., data = unsup_data) %>%
+  step_normalize(all_predictors()) %>%
+  prep()
+
+norm_data <- bake(rec, new_data = NULL)
+```
+
+```{r}
+set.seed(2025)
+kmeans_res <- kmeans(norm_data, centers = 3, nstart = 25)
+
+data_clustered <- data %>%
+  mutate(cluster = factor(kmeans_res$cluster))
+```
+
+```{r}
+data_clustered %>%
+  group_by(cluster, urban_or_rural) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  arrange(cluster)
+
+data_clustered %>%
+  group_by(cluster, country) %>%
+  summarise(avg_wealth = mean(Target), .groups = "drop") %>%
+  arrange(cluster, desc(avg_wealth))
+
+```
+```{r}
+ggplot(data_clustered, aes(x = urban_or_rural, fill = cluster)) +
+  geom_bar(position = "dodge") +
+  labs(title = "Cluster Distribution by Urban/Rural", x = "Urban or Rural", y = "Count") +
+  theme_minimal()
+
+```
+```{r}
+data_clustered %>%
+  group_by(cluster) %>%
+  summarise(across(where(is.numeric), mean)) %>%
+  pivot_longer(-cluster, names_to = "variable", values_to = "mean_value") %>%
+  ggplot(aes(x = variable, y = mean_value, fill = cluster)) +
+  geom_col(position = "dodge") +
+  theme_minimal() +
+  coord_flip() +
+  labs(title = "Cluster-wise Mean of Variables")
+
+```
+```{r}
+ data_clustered %>%
+  count(country, cluster) %>%
+  ggplot(aes(x = country, y = n, fill = cluster)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title = "Cluster Count by Country")
+
+```
+
+
+
+```{r}
+vars <- data %>% select(ghsl_water_surface, ghsl_built_pre_1975, ghsl_built_1975_to_1990,
+                      ghsl_built_1990_to_2000, ghsl_built_2000_to_2014, ghsl_not_built_up,
+                      ghsl_pop_density, landcover_crops_fraction, landcover_urban_fraction,
+                      landcover_water_permanent_10km_fraction, landcover_water_seasonal_10km_fraction,
+                      nighttime_lights, dist_to_capital, dist_to_shoreline)
+scaled_vars <- scale(vars)
+```
+
+```{r}
+# Determine optimal number of clusters using elbow method
+wss <- numeric(10)
+for (k in 1:10) {
+  kmeans_result <- kmeans(scaled_vars, centers = k, nstart = 25)
+  wss[k] <- kmeans_result$tot.withinss
+}
+elbow_data <- data.frame(k = 1:10, wss = wss)
+ggplot(elbow_data, aes(x = k, y = wss)) +
+  geom_line() + geom_point() +
+  labs(title = "Elbow Method for Optimal k", x = "Number of Clusters (k)", y = "Within-Cluster Sum of Squares") +
+  theme_minimal()
+
+# Apply K-means with optimal k (e.g., k = 3)
+set.seed(123)  # For reproducibility
+kmeans_result <- kmeans(scaled_vars, centers = 3, nstart = 25)
+data$cluster <- kmeans_result$cluster
+```
+
+```{r}
+# Evaluate clustering metrics
+silhouette_score <- silhouette(kmeans_result$cluster, dist(scaled_vars))[, 3]
+avg_silhouette <- mean(silhouette_score, na.rm = TRUE)
+bss <- kmeans_result$betweenss
+tss <- kmeans_result$totss
+bss_ratio <- bss / tss
+
+# Print metrics
+cat("Evaluation Metrics for k = 3:\n")
+cat(sprintf("Average Silhouette Score: %.3f\n", avg_silhouette))
+cat(sprintf("Between-Cluster Sum of Squares Ratio (BSS/TSS): %.3f\n", bss_ratio))
+cat(sprintf("Within-Cluster Sum of Squares: %.3f\n", wss[3]))
+```
+
+# Q7. split the data in a way that it must contain all rows from Ghana, Kenya and Nigeria.
+
+
+```{r}
+data_split <- data %>% filter(country %in% c("Ghana", "Kenya", "Nigeria"))
+```
+
+```{r}
+head(data_split)
+```
+
+```{r}
+nrow(data_split)
+```
+
+# Q8. Perform a Supervised Learning Analysis on the target (consider it a continuous variable)
+```{r}
+colSums(is.na(data_split))
+```
+
+```{r}
+set.seed(2025)
+```
+
+```{r}
+df <- initial_split(data_split, prop = 2/3, strata = Target)
+
+train_df <- training(df)
+test_df  <- testing(df)
+```
+
+```{r}
+rec <- recipe(Target ~ ., data = train_df) %>%
+  step_rm(ID) %>%   
+  step_novel(country, urban_or_rural) %>%   
+  step_dummy(country, urban_or_rural) %>%   
+  step_zv(all_predictors()) %>%   
+  step_normalize(all_numeric_predictors()) 
+```
+
+```{r}
+rec
+
+```
+
+
+```{r}
+# Prepare and apply recipe to training data
+prepped_recipe <- prep(rec, training = train_df)
+train_processed <- bake(prepped_recipe, new_data = train_df)
+test_processed <- bake(prepped_recipe, new_data = test_df)
+```
+
+```{r}
+X_train <- train_processed %>% select(-Target)
+y_train <- train_processed$Target
+X_test <- test_processed %>% select(-Target)
+y_test <- test_processed$Target
+```
+
+```{r}
+ library(randomForest)
+```
+
+
+```{r}
+# Random Forest Regression Model
+rf_model <- randomForest(X_train, y_train, ntree = 100, importance = TRUE)
+rf_pred <- predict(rf_model, newdata = X_test)
+```
+
+```{r}
+rf_mse <- mean((y_test - rf_pred)^2)
+rf_rmse <- sqrt(rf_mse)
+rf_r2 <- 1 - sum((y_test - rf_pred)^2) / sum((y_test - mean(y_test))^2)
+```
+
+```{r}
+rf_metrics <- data.frame(
+  Metric = c("MSE", "RMSE", "R-squared"),
+  Value = c(rf_mse, rf_rmse, rf_r2)
+)
+print(rf_metrics, row.names = FALSE)
+```
+
+```{r}
+# Visualization: Predicted vs. Actual
+df_plot <- data.frame(
+  Actual = y_test,
+  Predicted = rf_pred,
+  Model = rep("Random Forest", length(y_test))
+)
+ggplot(df_plot, aes(x = Actual, y = Predicted, color = Model)) +
+  geom_point(alpha = 0.6) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "black") +
+  labs(title = "Predicted vs. Actual Target Values (Random Forest)", x = "Actual Target", y = "Predicted Target") +
+  theme_minimal() +
+  theme(legend.position = "top")
+```
+```{r}
+imp <- importance(rf_model)
+imp_df <- data.frame(Variable = rownames(imp), Importance = imp[, 1])
+ggplot(imp_df, aes(x = reorder(Variable, Importance), y = Importance)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  labs(title = "Feature Importance in Random Forest", x = "Variable", y = "Importance") +
+  theme_minimal()
+```
+
+```{r}
+rf_model <- randomForest(X_train, y_train, ntree = 300, mtry = 6, nodesize = 5, importance = TRUE)
+
+# Predictions
+train_pred <- predict(rf_model, newdata = X_train)
+test_pred <- predict(rf_model, newdata = X_test)
+
+# Training and Test Metrics
+train_mse <- mean((y_train - train_pred)^2)
+train_rmse <- sqrt(train_mse)
+train_r2 <- 1 - sum((y_train - train_pred)^2) / sum((y_train - mean(y_train))^2)
+
+test_mse <- mean((y_test - test_pred)^2)
+test_rmse <- sqrt(test_mse)
+test_r2 <- 1 - sum((y_test - test_pred)^2) / sum((y_test - mean(y_test))^2)
+
+# Display metrics
+train_metrics <- data.frame(
+  Metric = c("MSE", "RMSE", "R-squared"),
+  Value = c(train_mse, train_rmse, train_r2)
+)
+print("Training Set Metrics:")
+print(train_metrics, row.names = FALSE)
+
+test_metrics <- data.frame(
+  Metric = c("MSE", "RMSE", "R-squared"),
+  Value = c(test_mse, test_rmse, test_r2)
+)
+print("Test Set Metrics:")
+print(test_metrics, row.names = FALSE)
+
+# Visualization: Predicted vs. Actual
+df_plot <- data.frame(
+  Actual = c(y_train, y_test),
+  Predicted = c(train_pred, test_pred),
+  Dataset = rep(c("Training", "Test"), times = c(length(y_train), length(y_test)))
+)
+ggplot(df_plot, aes(x = Actual, y = Predicted, color = Dataset)) +
+  geom_point(alpha = 0.6) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "black") +
+  labs(title = "Predicted vs. Actual Target Values", x = "Actual Target", y = "Predicted Target") +
+  theme_minimal() +
+  theme(legend.position = "top")
+```
+```{r}
+imp <- importance(rf_model)
+imp_df <- data.frame(Variable = rownames(imp), Importance = imp[, 1])
+ggplot(imp_df, aes(x = reorder(Variable, Importance), y = Importance)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  labs(title = "Feature Importance in Random Forest", x = "Variable", y = "Importance") +
+  theme_minimal()
+```
+```{r}
+library(ranger)
+```
+
+
+```{r}
+cv_folds <- vfold_cv(train_processed, v = 5)
+
+num_trees_values <- c(200, 300)
+mtry_values <- c(3, 4)  
+min_node_size_values <- c(10, 15) 
+max_depth_values <- c(5, 10)  
+param_grid <- expand.grid(num.trees = num_trees_values, mtry = mtry_values, min.node.size = min_node_size_values, max.depth = max_depth_values)
+
+
+tuning_results <- data.frame(
+  num.trees = numeric(),
+  mtry = numeric(),
+  min.node.size = numeric(),
+  max.depth = numeric(),
+  mse = numeric()
+)
+
+
+for (i in 1:nrow(param_grid)) {
+  num.trees <- param_grid$num.trees[i]
+  mtry <- param_grid$mtry[i]
+  min.node.size <- param_grid$min.node.size[i]
+  max.depth <- param_grid$max.depth[i]
+  
+  fold_mse <- numeric(5)
+  for (j in 1:5) {
+    fold <- cv_folds$splits[[j]]
+    train_fold <- analysis(fold)
+    valid_fold <- assessment(fold)
+    
+    X_train_fold <- train_fold %>% select(-Target)
+    y_train_fold <- train_fold$Target
+    X_valid_fold <- valid_fold %>% select(-Target)
+    y_valid_fold <- valid_fold$Target
+    
+    rf_model <- ranger(Target ~ ., data = train_fold, num.trees = num.trees, mtry = mtry, min.node.size = min.node.size, max.depth = max.depth, importance = "impurity")
+    rf_pred <- predict(rf_model, data = X_valid_fold)$predictions
+    
+    fold_mse[j] <- mean((y_valid_fold - rf_pred)^2)
+  }
+  
+  avg_mse <- mean(fold_mse)
+  tuning_results <- rbind(tuning_results, data.frame(num.trees = num.trees, mtry = mtry, min.node.size = min.node.size, max.depth = max.depth, mse = avg_mse))
+}
+
+
+best_params <- tuning_results[which.min(tuning_results$mse), ]
+best_num.trees <- best_params$num.trees
+best_mtry <- best_params$mtry
+best_min.node.size <- best_params$min.node.size
+best_max.depth <- best_params$max.depth
+
+
+final_rf_model <- ranger(Target ~ ., data = train_processed, num.trees = best_num.trees, mtry = best_mtry, min.node.size = best_min.node.size, max.depth = best_max.depth, importance = "impurity")
+train_pred <- predict(final_rf_model, data = X_train)$predictions
+test_pred <- predict(final_rf_model, data = X_test)$predictions
+
+
+train_mse <- mean((y_train - train_pred)^2)
+train_rmse <- sqrt(train_mse)
+train_r2 <- 1 - sum((y_train - train_pred)^2) / sum((y_train - mean(y_train))^2)
+
+test_mse <- mean((y_test - test_pred)^2)
+test_rmse <- sqrt(test_mse)
+test_r2 <- 1 - sum((y_test - test_pred)^2) / sum((y_test - mean(y_test))^2)
+
+
+train_metrics <- data.frame(
+  Metric = c("MSE", "RMSE", "R-squared"),
+  Value = c(train_mse, train_rmse, train_r2)
+)
+print("Training Set Metrics:")
+print(train_metrics, row.names = FALSE)
+
+test_metrics <- data.frame(
+  Metric = c("MSE", "RMSE", "R-squared"),
+  Value = c(test_mse, test_rmse, test_r2)
+)
+print("Test Set Metrics:")
+print(test_metrics, row.names = FALSE)
+
+
+df_plot <- data.frame(
+  Actual = c(y_train, y_test),
+  Predicted = c(train_pred, test_pred),
+  Dataset = rep(c("Training", "Test"), times = c(length(y_train), length(y_test)))
+)
+ggplot(df_plot, aes(x = Actual, y = Predicted, color = Dataset)) +
+  geom_point(alpha = 0.6) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "black") +
+  labs(title = "Predicted vs. Actual Target Values", x = "Actual Target", y = "Predicted Target") +
+  theme_minimal() +
+  theme(legend.position = "top")
+```
+```{r}
+print(best_params, row.names = FALSE)
+
+```
+
+
+#  Q9. Define a new Target variable defining two classes rich (wealth index greater than or equal 0.5) and poor (wealth index less than 0.5).
+```{r}
+data_split <- data_split %>% mutate(Target = ifelse(Target >= 0.5, "rich", "poor"), Target = factor(Target, levels = c("poor", "rich")))
+```
+
+```{r}
+data_split
+```
+
+#  Q10. Study this new target variable.
+
+```{r}
+table(data_split$Target)
+```
+```{r}
+sum(is.na(data_split$Target))
+```
+```{r}
+ggplot(data_split, aes(x = Target, fill = Target)) +
+  geom_bar() +
+  labs(title = "Class Distribution of New Target Variable", x = "Class", y = "Count") +
+  theme_minimal()
+```
+
+```{r}
+numeric_summary <- data_split %>%
+  group_by(Target) %>%
+  summarise(
+    mean_nighttime_lights = mean(nighttime_lights, na.rm = TRUE),
+    mean_dist_to_shoreline = mean(dist_to_shoreline, na.rm = TRUE),
+    mean_dist_to_capital = mean(dist_to_capital, na.rm = TRUE),
+    mean_ghsl_pop_density = mean(ghsl_pop_density, na.rm = TRUE),
+    mean_ghsl_built_2000_to_2014 = mean(ghsl_built_2000_to_2014, na.rm = TRUE)
+  )
+print("Summary of Numeric Predictors by Target Class:")
+print(numeric_summary)
+```
+
+```{r}
+# Boxplot: nighttime_lights by Target
+ggplot(data_split, aes(x = Target, y = nighttime_lights, fill = Target)) +
+  geom_boxplot() +
+  labs(title = "Nighttime Lights by Target Class", x = "Class", y = "Nighttime Lights") +
+  theme_minimal()
+```
+
+```{r}
+# Boxplot: dist_to_shoreline by Target
+ggplot(data_split, aes(x = Target, y = dist_to_shoreline, fill = Target)) +
+  geom_boxplot() +
+  labs(title = "Distance to Shoreline by Target Class", x = "Class", y = "Distance to Shoreline") +
+  theme_minimal()
+```
+```{r}
+# Categorical variable: urban_or_rural vs Target
+urban_rural_table <- table(data_split$urban_or_rural, data_split$Target)
+urban_rural_prop <- prop.table(urban_rural_table, margin = 1)
+print("Urban/Rural vs Target (Counts):")
+print(urban_rural_table)
+print("Urban/Rural vs Target (Proportions):")
+print(urban_rural_prop)
+```
+
+```{r}
+ggplot(data_split, aes(x = urban_or_rural, fill = Target)) +
+  geom_bar(position = "fill") +
+  labs(title = "Urban/Rural vs Target Class", x = "Urban or Rural", y = "Proportion") +
+  theme_minimal()
+```
+# Q11. Perform another Supervised Learning Analysis on this new target.
+```{r}
+set.seed(123)
+data_split <- initial_split(data_split, strata = Target, prop = 0.8)
+train_data <- training(data_split)
+test_data <- testing(data_split)
+
+
+rec <- recipe(Target ~ ., data = train_data) %>%
+  update_role(ID, country, urban_or_rural, new_role = "ID") %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_zv(all_predictors()) %>%
+  step_normalize(all_numeric_predictors())
+
+```
+
+```{r}
+rec
+
+```
+
+
+```{r}
+# Random Forest
+rf_spec <- rand_forest(mtry = tune(), trees = tune(), min_n = tune()) %>%
+  set_engine("ranger") %>%
+  set_mode("classification")
+
+# XGBoost
+xgb_spec <- boost_tree(mtry = tune(), trees = tune(), learn_rate = tune()) %>%
+  set_engine("xgboost") %>%
+  set_mode("classification")
+
+```
+
+```{r}
+ctrl <- control_grid(save_pred = TRUE, save_workflow = TRUE)
+folds <- vfold_cv(train_data, v = 5, strata = Target)
+
+# Workflow
+rf_workflow <- workflow() %>% add_model(rf_spec) %>% add_recipe(rec)
+xgb_workflow <- workflow() %>% add_model(xgb_spec) %>% add_recipe(rec)
+
+# Grid
+rf_grid <- grid_regular(mtry(range = c(3, 7)), trees(range = c(100, 300)), min_n(range = c(5, 15)), levels = 3)
+xgb_grid <- grid_regular(mtry(range = c(3, 7)), trees(range = c(100, 300)), learn_rate(range = c(0.01, 0.2)), levels = 3)
+
+# Tuning
+metrics <- metric_set(roc_auc, accuracy, sens, yardstick::spec)
+
+rf_tuned <- tune_grid(
+  rf_workflow,
+  resamples = folds,
+  grid = rf_grid,
+  control = ctrl,
+  metrics = metrics
+)
+xgb_tuned <- tune_grid(
+  xgb_workflow,
+  resamples = folds,
+  grid = xgb_grid,
+  control = ctrl,
+  metrics = metrics
+)
+```
+
+```{r}
+collect_metrics(rf_tuned)
+collect_metrics(xgb_tuned)
+
+
+
+```
+```{r}
+rf_preds <- collect_predictions(rf_tuned)
+xgb_preds <- collect_predictions(xgb_tuned)
+```
+
+```{r}
+rf_preds %>% pr_auc(.pred_class1, truth = Target)
+
+```
+```{r}
+rf_preds %>%
+  mutate(true_bin = ifelse(Target == "rich", 1, 0),  # change class as needed
+         pred_prob = .pred_rich) %>%
+  summarise(
+    RMSE = sqrt(mean((true_bin - pred_prob)^2)),
+    MAPE = mean(abs((true_bin - pred_prob) / ifelse(true_bin == 0, NA, true_bin)), na.rm = TRUE)
+  )
+
+```
+```{r}
+rf_preds %>%
+  count(.pred_class) %>%
+  mutate(prevalence = n / sum(n))
+
+```
+```{r}
+# Compare best ROC AUC
+rf_auc <- show_best(rf_tuned, metric = "roc_auc", n = 1)
+xgb_auc <- show_best(xgb_tuned, metric = "roc_auc", n = 1)
+
+# Print to compare
+print("Random Forest ROC AUC:")
+print(rf_auc)
+
+print("XGBoost ROC AUC:")
+print(xgb_auc)
+
+```
+
+
+```{r}
+install.packages("stacks")
+library(stacks)
+```
+
+
+```{r}
+model_stack <- stacks()
+
+ 
+model_stack <- model_stack %>%
+  add_candidates(rf_tuned) %>%
+  add_candidates(xgb_tuned)
+
+ 
+model_stack <- model_stack %>%
+  blend_predictions()
+
+ 
+model_stack <- model_stack %>%
+  fit_members()
+
+
+
+```
+
+```{r}
+stacked_preds <- predict(model_stack, test_data, type = "class") %>%
+  bind_cols(predict(model_stack, test_data, type = "prob")) %>%
+  bind_cols(test_data %>% select(Target))
+
+```
+
+```{r}
+library(yardstick)
+
+roc_auc(stacked_preds, truth = Target, .pred_rich)
+
+classification_metrics <- metric_set(accuracy, sens, yardstick::spec, roc_auc)
+
+classification_metrics(stacked_preds, truth = Target, estimate = .pred_class, .pred_rich)
+
+```
+
+
+```{r}
+conf_mat(stacked_preds, truth = Target, estimate = .pred_class) %>%
+  summary() %>%
+  filter(.metric == "detection_prevalence")
+
+
+```
+```{r}
+head(stacked_preds)
+
+```
+
+```{r}
+library(yardstick)
+
+roc_auc(stacked_preds, truth = Target, .pred_rich)
+
+```
+
+```{r}
+stacked_preds %>%
+  roc_curve(truth = Target, .pred_rich) %>%
+  autoplot()
+
+```
+```{r}
+roc_auc(stacked_preds, truth = Target, .pred_poor)
+
+```
+
